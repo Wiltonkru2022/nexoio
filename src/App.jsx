@@ -68,23 +68,30 @@ const FIREBASE_DEFAULT_HOSTS = new Set([
   "nexoio-4b7ae.firebaseapp.com",
 ]);
 const MARKETING_HOSTS = new Set(["nexoio.com.br", "www.nexoio.com.br"]);
-const MARKETING_URL = "https://nexoio.com.br/";
-const APP_URL = "https://app.nexoio.com.br/";
+const MARKETING_ORIGIN = "https://nexoio.com.br";
+const APP_ORIGIN = "https://app.nexoio.com.br";
+const PUBLIC_PATHS = new Set(["/", "/login", "/cadastro"]);
 
 function canonicalRedirectFor(user, loading) {
   if (typeof window === "undefined") return "";
   const { hostname, pathname, search, hash } = window.location;
 
   if (FIREBASE_DEFAULT_HOSTS.has(hostname)) {
-    return MARKETING_URL;
+    return `${MARKETING_ORIGIN}/`;
   }
 
-  if (!loading && user && MARKETING_HOSTS.has(hostname)) {
-    return `${APP_URL}${pathname.replace(/^\/+/, "")}${search}${hash}`;
+  if (hostname === "app.nexoio.com.br") {
+    if (pathname === "/login") return `${MARKETING_ORIGIN}/login${search}${hash}`;
+    if (pathname === "/cadastro") return `${MARKETING_ORIGIN}/cadastro${search}${hash}`;
+    if (pathname !== "/painel") return `${APP_ORIGIN}/painel${search}${hash}`;
+    if (!loading && !user) return `${MARKETING_ORIGIN}/login${search}${hash}`;
+    return "";
   }
 
-  if (!loading && !user && MARKETING_HOSTS.has(hostname) && ["/login", "/cadastro"].includes(pathname)) {
-    return `${APP_URL}${pathname.replace(/^\/+/, "")}${search}${hash}`;
+  if (MARKETING_HOSTS.has(hostname)) {
+    if (pathname === "/painel") return `${APP_ORIGIN}/painel${search}${hash}`;
+    if (!PUBLIC_PATHS.has(pathname)) return `${MARKETING_ORIGIN}/${search}${hash}`;
+    if (!loading && user) return `${APP_ORIGIN}/painel${search}${hash}`;
   }
 
   return "";

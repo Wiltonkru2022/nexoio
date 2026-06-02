@@ -4,11 +4,17 @@
 
 Use:
 
-- `nexoio.com.br` para o site comercial.
-- `www.nexoio.com.br` como alias do site comercial.
-- `app.nexoio.com.br` para o sistema.
+- `https://nexoio.com.br` para a página inicial.
+- `https://nexoio.com.br/login` para login.
+- `https://nexoio.com.br/cadastro` para cadastro.
+- `https://app.nexoio.com.br/painel` para o painel do sistema.
 
-No código, quando o host começa com `app.`, a tela pública abre direto no login. No domínio principal, abre a landing page.
+Rotas canônicas:
+
+- `https://nexoio.com.br/painel` redireciona para `https://app.nexoio.com.br/painel`.
+- `https://app.nexoio.com.br/login` redireciona para `https://nexoio.com.br/login`.
+- `https://app.nexoio.com.br/cadastro` redireciona para `https://nexoio.com.br/cadastro`.
+- Usuário autenticado no domínio público redireciona para `https://app.nexoio.com.br/painel`.
 
 Os domínios padrão do Firebase não devem ser divulgados para clientes:
 
@@ -24,7 +30,7 @@ https://nexoio.com.br/
 Quando um usuário já autenticado acessa `nexoio.com.br` ou `www.nexoio.com.br`, o app direciona para:
 
 ```text
-https://app.nexoio.com.br/
+https://app.nexoio.com.br/painel
 ```
 
 ## Firebase Hosting

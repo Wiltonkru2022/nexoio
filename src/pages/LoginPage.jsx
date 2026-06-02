@@ -35,9 +35,6 @@ const planItems = [
   "Controle de usuários e permissões",
 ];
 
-const APP_URL = "https://app.nexoio.com.br";
-const MARKETING_HOSTS = new Set(["nexoio.com.br", "www.nexoio.com.br"]);
-
 function viewFromLocation() {
   if (typeof window === "undefined") return "home";
   const { hostname, pathname } = window.location;
@@ -53,11 +50,6 @@ function navigatePublicView(view) {
   if (typeof window === "undefined") return;
 
   const path = view === "cadastro" ? "/cadastro" : view === "login" ? "/login" : "/";
-  if (MARKETING_HOSTS.has(window.location.hostname) && view !== "home") {
-    window.location.assign(`${APP_URL}${path}`);
-    return;
-  }
-
   window.history.pushState({ publicView: view }, "", path);
 }
 
