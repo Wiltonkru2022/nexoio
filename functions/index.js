@@ -116,6 +116,24 @@ function isMercadoPagoPaid(status) {
   return ["approved", "accredited"].includes(status);
 }
 
+function sendCors(response) {
+  response.set("Access-Control-Allow-Origin", "*");
+  response.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+}
+
+async function authUidFromRequest(request) {
+  const authorization = request.get("authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token) throw new HttpsError("unauthenticated", "Faça login para continuar.");
+  const decoded = await admin.auth().verifyIdToken(token);
+  return decoded.uid;
+}
+
+function requestData(request) {
+  return request.body?.data || request.body || {};
+}
+
 function signaturePart(signatureHeader, key) {
   return String(signatureHeader || "")
     .split(/[;,]/)
@@ -159,7 +177,7 @@ function payerIdentification(document = "") {
   };
 }
 
-export const bootstrapTenant = onCall({ region: "southamerica-east1" }, async (request) => {
+export const bootstrapTenant = onCall({ region: "southamerica-east1", invoker: "public" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
 
   const uid = request.auth.uid;
@@ -262,9 +280,8 @@ export const bootstrapTenant = onCall({ region: "southamerica-east1" }, async (r
   };
 });
 
-export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
-  const { tenantId, tenant, profile } = await getTenantForUser(request.auth.uid);
+async function createNexoSubscriptionChargeForUid(uid) {
+  const { tenantId, tenant, profile } = await getTenantForUser(uid);
   if (!["owner", "admin", "manager"].includes(profile.role)) {
     throw new HttpsError("permission-denied", "Somente administrador pode regularizar assinatura.");
   }
@@ -312,7 +329,7 @@ export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1
     qrCodeImage: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : "",
     paymentLinkUrl,
     raw: payment,
-    createdBy: request.auth.uid,
+    createdBy: uid,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
@@ -335,12 +352,16 @@ export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1
     qrCodeImage: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : "",
     paymentLinkUrl,
   };
+}
+
+export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1", invoker: "public", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
+  return createNexoSubscriptionChargeForUid(request.auth.uid);
 });
 
-export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
-  const { tenantId } = await getTenantForUser(request.auth.uid);
-  const correlationID = request.data?.correlationID;
+async function checkNexoSubscriptionChargeForUid(uid, data = {}) {
+  const { tenantId } = await getTenantForUser(uid);
+  const correlationID = data?.correlationID;
   if (!correlationID) throw new HttpsError("invalid-argument", "Informe a cobrança.");
 
   const chargeRef = db.doc(`tenants/${tenantId}/subscriptionCharges/${correlationID}`);
@@ -376,9 +397,56 @@ export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1"
     paid,
     paidAt: payment.date_approved || null,
   };
+}
+
+export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1", invoker: "public", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
+  return checkNexoSubscriptionChargeForUid(request.auth.uid, request.data);
 });
 
-export const createOpenPixCharge = onCall({ region: "southamerica-east1" }, async (request) => {
+export const createNexoSubscriptionChargeApi = onRequest({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request, response) => {
+  sendCors(response);
+  if (request.method === "OPTIONS") {
+    response.status(204).send("");
+    return;
+  }
+
+  try {
+    const uid = await authUidFromRequest(request);
+    const result = await createNexoSubscriptionChargeForUid(uid);
+    response.status(200).json({ result });
+  } catch (error) {
+    response.status(error.code === "unauthenticated" ? 401 : 400).json({
+      error: {
+        status: error.code || "internal",
+        message: error.message || "Não foi possível gerar a cobrança.",
+      },
+    });
+  }
+});
+
+export const checkNexoSubscriptionChargeApi = onRequest({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request, response) => {
+  sendCors(response);
+  if (request.method === "OPTIONS") {
+    response.status(204).send("");
+    return;
+  }
+
+  try {
+    const uid = await authUidFromRequest(request);
+    const result = await checkNexoSubscriptionChargeForUid(uid, requestData(request));
+    response.status(200).json({ result });
+  } catch (error) {
+    response.status(error.code === "unauthenticated" ? 401 : 400).json({
+      error: {
+        status: error.code || "internal",
+        message: error.message || "Não foi possível consultar o pagamento.",
+      },
+    });
+  }
+});
+
+export const createOpenPixCharge = onCall({ region: "southamerica-east1", invoker: "public" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
   const { tenantId, tenant, profile } = await getTenantForUser(request.auth.uid);
   const amount = Math.round(Number(request.data?.amount || 0) * 100);
@@ -432,7 +500,7 @@ export const createOpenPixCharge = onCall({ region: "southamerica-east1" }, asyn
   };
 });
 
-export const checkOpenPixCharge = onCall({ region: "southamerica-east1" }, async (request) => {
+export const checkOpenPixCharge = onCall({ region: "southamerica-east1", invoker: "public" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
   const { tenantId, tenant } = await getTenantForUser(request.auth.uid);
   const correlationID = request.data?.correlationID;
@@ -497,17 +565,19 @@ export const nexoSubscriptionWebhook = onRequest({ region: "southamerica-east1",
 
   const payment = await mercadoPagoFetch(`/v1/payments/${encodeURIComponent(paymentId)}`, { method: "GET" });
   const correlationID = payment.external_reference || payment.metadata?.correlation_id || "";
-  const matches = await db.collectionGroup("subscriptionCharges").where("providerPaymentId", "==", String(paymentId)).limit(1).get();
-  const fallbackMatches = matches.empty && correlationID
-    ? await db.collectionGroup("subscriptionCharges").where("correlationID", "==", correlationID).limit(1).get()
-    : matches;
+  const tenantId = payment.metadata?.tenant_id || "";
 
-  if (fallbackMatches.empty) {
+  if (!tenantId || !correlationID) {
     response.status(200).json({ ok: true, ignored: true });
     return;
   }
 
-  const chargeRef = fallbackMatches.docs[0].ref;
+  const chargeRef = db.doc(`tenants/${tenantId}/subscriptionCharges/${correlationID}`);
+  const chargeSnap = await chargeRef.get();
+  if (!chargeSnap.exists) {
+    response.status(200).json({ ok: true, ignored: true });
+    return;
+  }
   const tenantRef = chargeRef.parent.parent;
   const status = mercadoPagoPaymentStatus(payment.status);
   const paid = isMercadoPagoPaid(status);

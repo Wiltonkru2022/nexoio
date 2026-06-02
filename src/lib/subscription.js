@@ -1,15 +1,32 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../firebase";
+import { auth } from "../firebase";
 
-const createSubscriptionCharge = httpsCallable(functions, "createNexoSubscriptionCharge");
-const checkSubscriptionCharge = httpsCallable(functions, "checkNexoSubscriptionCharge");
+const FUNCTIONS_BASE_URL = "https://southamerica-east1-nexoio-4b7ae.cloudfunctions.net";
+
+async function callSubscriptionApi(path, data = {}) {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) {
+    throw new Error("Faça login para continuar.");
+  }
+
+  const response = await fetch(`${FUNCTIONS_BASE_URL}/${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ data }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || "Não foi possível concluir a operação.");
+  }
+  return payload.result;
+}
 
 export async function createNexoSubscriptionCharge() {
-  const result = await createSubscriptionCharge({});
-  return result.data;
+  return callSubscriptionApi("createNexoSubscriptionChargeApi");
 }
 
 export async function checkNexoSubscriptionCharge(correlationID) {
-  const result = await checkSubscriptionCharge({ correlationID });
-  return result.data;
+  return callSubscriptionApi("checkNexoSubscriptionChargeApi", { correlationID });
 }
