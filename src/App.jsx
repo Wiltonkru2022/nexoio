@@ -61,6 +61,7 @@ import { RelatoriosPage } from "./pages/RelatoriosPage";
 import { ModulosPage } from "./pages/ModulosPage";
 import { VendasPage } from "./pages/VendasPage";
 import { SubscriptionPage } from "./pages/SubscriptionPage";
+import { bootstrapTenant } from "./lib/tenantBootstrap";
 
 const FIREBASE_DEFAULT_HOSTS = new Set([
   "nexoio-4b7ae.web.app",
@@ -79,6 +80,10 @@ function canonicalRedirectFor(user, loading) {
   }
 
   if (!loading && user && MARKETING_HOSTS.has(hostname)) {
+    return `${APP_URL}${pathname.replace(/^\/+/, "")}${search}${hash}`;
+  }
+
+  if (!loading && !user && MARKETING_HOSTS.has(hostname) && ["/login", "/cadastro"].includes(pathname)) {
     return `${APP_URL}${pathname.replace(/^\/+/, "")}${search}${hash}`;
   }
 
@@ -224,45 +229,9 @@ function App() {
       return;
     }
 
-    const signupStore = signupStoreRef.current || initialStoreForm;
-    const tenantRef = await addDoc(collection(db, "tenants"), {
-      ...signupStore,
-      name: signupStore.name?.trim() || "Minha loja de eletrônicos",
-      owner_uid: currentUser.uid,
-      termsAccepted: acceptedTerms,
-      termsAcceptedAt: acceptedTerms ? serverTimestamp() : null,
-      termsVersion: "2026-06-01",
-      createdAt: serverTimestamp(),
-      plan: "starter",
-      subscriptionStatus: "pending_payment",
-      subscriptionProvider: "mercado_pago",
-      subscriptionAmount: 99.9,
-      subscriptionDueDate: "",
-      lastPaymentAt: null,
-    });
-    const ownerProfile = {
-      email: normalizedEmail,
-      name: currentUser.displayName || normalizedEmail,
-      role: "owner",
-      status: "active",
-      tenant_id: tenantRef.id,
-      termsAccepted: acceptedTerms,
-      termsAcceptedAt: acceptedTerms ? serverTimestamp() : null,
-      termsVersion: "2026-06-01",
-      createdAt: serverTimestamp(),
-    };
-
-    await setDoc(profileRef, ownerProfile);
-    await setDoc(doc(db, "tenants", tenantRef.id, "members", currentUser.uid), {
-      uid: currentUser.uid,
-      email: normalizedEmail,
-      name: currentUser.displayName || normalizedEmail,
-      role: "owner",
-      status: "active",
-      joinedAt: serverTimestamp(),
-    });
-    setProfile({ id: currentUser.uid, ...ownerProfile });
-    setTenantId(tenantRef.id);
+    const result = await bootstrapTenant(signupStoreRef.current || initialStoreForm, acceptedTerms);
+    setProfile(result.profile);
+    setTenantId(result.tenantId);
     setBootingTenant(false);
   }
 
@@ -1326,7 +1295,7 @@ function App() {
     }
   }
 
-  if (canonicalRedirect || loading || bootingTenant || (user && !tenantId)) {
+  if (canonicalRedirect || loading || bootingTenant) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-950 p-6 text-white">
         <div className="w-full max-w-sm rounded-2xl bg-white/10 p-6 text-center ring-1 ring-white/10">
@@ -1334,6 +1303,41 @@ function App() {
           <p className="mt-5 text-sm font-black uppercase tracking-[0.22em] text-sky-200">Carregando sistema</p>
         </div>
       </div>
+    );
+  }
+
+  if (user && !tenantId) {
+    return (
+      <>
+        <ToastStack toasts={toasts} />
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-white">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/10 p-8 text-center shadow-2xl">
+            <BrandLogo className="mx-auto mb-6" />
+            <h1 className="text-2xl font-black">Não foi possível carregar a loja</h1>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
+              {erro || "Seu login foi criado, mas o vínculo com a loja ainda não ficou pronto."}
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setErro("");
+                  initializeTenant(user).catch((error) => {
+                    setErro(`Erro ao carregar loja: ${error.message}`);
+                    setBootingTenant(false);
+                  });
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
+              >
+                Tentar novamente
+              </button>
+              <button type="button" onClick={handleLogout} className="rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-950">
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 

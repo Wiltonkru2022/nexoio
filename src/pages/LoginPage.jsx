@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -35,6 +35,32 @@ const planItems = [
   "Controle de usuários e permissões",
 ];
 
+const APP_URL = "https://app.nexoio.com.br";
+const MARKETING_HOSTS = new Set(["nexoio.com.br", "www.nexoio.com.br"]);
+
+function viewFromLocation() {
+  if (typeof window === "undefined") return "home";
+  const { hostname, pathname } = window.location;
+
+  if (pathname === "/cadastro") return "cadastro";
+  if (pathname === "/login") return "login";
+  if (hostname.startsWith("app.")) return "login";
+
+  return "home";
+}
+
+function navigatePublicView(view) {
+  if (typeof window === "undefined") return;
+
+  const path = view === "cadastro" ? "/cadastro" : view === "login" ? "/login" : "/";
+  if (MARKETING_HOSTS.has(window.location.hostname) && view !== "home") {
+    window.location.assign(`${APP_URL}${path}`);
+    return;
+  }
+
+  window.history.pushState({ publicView: view }, "", path);
+}
+
 export function LoginPage({
   setAuthMode,
   email,
@@ -51,21 +77,32 @@ export function LoginPage({
   onSubmit,
   clearMessages,
 }) {
-  const [publicView, setPublicView] = useState(() => {
-    if (typeof window !== "undefined" && window.location.hostname.startsWith("app.")) return "login";
-    return "home";
-  });
+  const [publicView, setPublicView] = useState(viewFromLocation);
+
+  useEffect(() => {
+    setAuthMode(publicView === "cadastro" ? "cadastro" : "login");
+  }, [publicView, setAuthMode]);
+
+  useEffect(() => {
+    function handlePopState() {
+      setPublicView(viewFromLocation());
+      clearMessages();
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [clearMessages]);
 
   function openLogin() {
-    setAuthMode("login");
     clearMessages();
     setPublicView("login");
+    navigatePublicView("login");
   }
 
   function openSignup() {
-    setAuthMode("cadastro");
     clearMessages();
     setPublicView("cadastro");
+    navigatePublicView("cadastro");
   }
 
   if (publicView === "terms" || publicView === "privacy") {

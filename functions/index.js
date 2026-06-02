@@ -13,6 +13,25 @@ const OPENPIX_SANDBOX = "https://api.openpix.com.br/api/v1";
 const MERCADO_PAGO_API = "https://api.mercadopago.com";
 const NEXO_SUBSCRIPTION_AMOUNT = Number(process.env.NEXO_SUBSCRIPTION_AMOUNT || 99.9);
 
+function normalizeEmail(email = "") {
+  return String(email || "").trim().toLowerCase();
+}
+
+function cleanStorePayload(store = {}) {
+  return {
+    name: String(store.name || "").trim() || "Minha loja de eletrônicos",
+    document: String(store.document || ""),
+    phone: String(store.phone || ""),
+    cep: String(store.cep || ""),
+    street: String(store.street || ""),
+    number: String(store.number || ""),
+    neighborhood: String(store.neighborhood || ""),
+    city: String(store.city || ""),
+    state: String(store.state || "").toUpperCase().slice(0, 2),
+    logoUrl: String(store.logoUrl || ""),
+  };
+}
+
 async function getUserProfile(uid) {
   const snap = await db.doc(`userProfiles/${uid}`).get();
   if (!snap.exists) throw new HttpsError("permission-denied", "Perfil não encontrado.");
@@ -135,6 +154,72 @@ function payerIdentification(document = "") {
     number: digits,
   };
 }
+
+export const bootstrapTenant = onCall({ region: "southamerica-east1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
+
+  const uid = request.auth.uid;
+  const email = normalizeEmail(request.auth.token.email || request.data?.email || "");
+  const profileRef = db.doc(`userProfiles/${uid}`);
+  const profileSnap = await profileRef.get();
+  if (profileSnap.exists) {
+    return {
+      tenantId: profileSnap.data().tenant_id,
+      profile: { id: uid, ...profileSnap.data() },
+      existing: true,
+    };
+  }
+
+  const store = cleanStorePayload(request.data?.store || {});
+  const acceptedTerms = Boolean(request.data?.acceptedTerms);
+  const tenantRef = db.collection("tenants").doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const ownerProfile = {
+    email,
+    name: request.auth.token.name || email,
+    role: "owner",
+    status: "active",
+    tenant_id: tenantRef.id,
+    termsAccepted: acceptedTerms,
+    termsAcceptedAt: acceptedTerms ? now : null,
+    termsVersion: "2026-06-01",
+    createdAt: now,
+  };
+
+  const batch = db.batch();
+  batch.set(tenantRef, {
+    ...store,
+    owner_uid: uid,
+    termsAccepted: acceptedTerms,
+    termsAcceptedAt: acceptedTerms ? now : null,
+    termsVersion: "2026-06-01",
+    createdAt: now,
+    plan: "starter",
+    subscriptionStatus: "pending_payment",
+    subscriptionProvider: "mercado_pago",
+    subscriptionAmount: NEXO_SUBSCRIPTION_AMOUNT,
+    subscriptionDueDate: "",
+    lastPaymentAt: null,
+    suppliers: [],
+    financialAccounts: [],
+  });
+  batch.set(profileRef, ownerProfile);
+  batch.set(tenantRef.collection("members").doc(uid), {
+    uid,
+    email,
+    name: request.auth.token.name || email,
+    role: "owner",
+    status: "active",
+    joinedAt: now,
+  });
+  await batch.commit();
+
+  return {
+    tenantId: tenantRef.id,
+    profile: { id: uid, ...ownerProfile },
+    existing: false,
+  };
+});
 
 export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
