@@ -10,6 +10,23 @@ Use:
 
 No código, quando o host começa com `app.`, a tela pública abre direto no login. No domínio principal, abre a landing page.
 
+Os domínios padrão do Firebase não devem ser divulgados para clientes:
+
+- `nexoio-4b7ae.web.app`
+- `nexoio-4b7ae.firebaseapp.com`
+
+Quando acessados pelo navegador, o app redireciona automaticamente para:
+
+```text
+https://nexoio.com.br/
+```
+
+Quando um usuário já autenticado acessa `nexoio.com.br` ou `www.nexoio.com.br`, o app direciona para:
+
+```text
+https://app.nexoio.com.br/
+```
+
 ## Firebase Hosting
 
 O Firebase Hosting está configurado em `firebase.json`:

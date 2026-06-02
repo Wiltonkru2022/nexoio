@@ -62,6 +62,29 @@ import { ModulosPage } from "./pages/ModulosPage";
 import { VendasPage } from "./pages/VendasPage";
 import { SubscriptionPage } from "./pages/SubscriptionPage";
 
+const FIREBASE_DEFAULT_HOSTS = new Set([
+  "nexoio-4b7ae.web.app",
+  "nexoio-4b7ae.firebaseapp.com",
+]);
+const MARKETING_HOSTS = new Set(["nexoio.com.br", "www.nexoio.com.br"]);
+const MARKETING_URL = "https://nexoio.com.br/";
+const APP_URL = "https://app.nexoio.com.br/";
+
+function canonicalRedirectFor(user, loading) {
+  if (typeof window === "undefined") return "";
+  const { hostname, pathname, search, hash } = window.location;
+
+  if (FIREBASE_DEFAULT_HOSTS.has(hostname)) {
+    return MARKETING_URL;
+  }
+
+  if (!loading && user && MARKETING_HOSTS.has(hostname)) {
+    return `${APP_URL}${pathname.replace(/^\/+/, "")}${search}${hash}`;
+  }
+
+  return "";
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -120,6 +143,13 @@ function App() {
   const lastStoreCep = useRef("");
   const lastSignupCep = useRef("");
   const signupStoreRef = useRef(initialStoreForm);
+  const canonicalRedirect = useMemo(() => canonicalRedirectFor(user, loading), [user, loading]);
+
+  useEffect(() => {
+    if (canonicalRedirect) {
+      window.location.replace(canonicalRedirect);
+    }
+  }, [canonicalRedirect]);
 
   function addToast(message, type = "success") {
     const id = `${Date.now()}-${Math.random()}`;
@@ -1296,7 +1326,7 @@ function App() {
     }
   }
 
-  if (loading || bootingTenant || (user && !tenantId)) {
+  if (canonicalRedirect || loading || bootingTenant || (user && !tenantId)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-950 p-6 text-white">
         <div className="w-full max-w-sm rounded-2xl bg-white/10 p-6 text-center ring-1 ring-white/10">
