@@ -17,7 +17,7 @@ import {
 import { Input, Notice } from "../components/ui";
 import { maskCep, maskCpfCnpj, maskPhone } from "../lib/validation";
 
-const planPrice = "R$ 99,90/mês";
+const planPrice = "R$ 1,00/mês";
 
 const highlights = [
   { icon: ShoppingCart, title: "PDV com caixa", text: "Venda produtos, serviços e acompanhe pagamentos no balcão." },
@@ -201,7 +201,7 @@ export function LoginPage({
               <div className="grid gap-4 md:grid-cols-3">
                 <MiniMetric value="2 vias" label="OS e comprovantes" />
                 <MiniMetric value="1 tela" label="PDV com carrinho e pagamentos" />
-                <MiniMetric value="R$ 99,90" label="Plano mensal único" />
+                <MiniMetric value="R$ 1,00" label="Plano mensal único" />
               </div>
             </div>
 

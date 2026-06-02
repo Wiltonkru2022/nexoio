@@ -76,7 +76,7 @@ Campos no tenant:
 plan: "starter",
 subscriptionStatus: "active",
 subscriptionProvider: "mercado_pago",
-subscriptionAmount: 99.9,
+subscriptionAmount: 1,
 subscriptionDueDate: "2026-07-02",
 subscriptionPaymentId: "...",
 lastPaymentAt: "..."

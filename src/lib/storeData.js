@@ -64,7 +64,7 @@ export const initialStoreForm = {
   plan: "starter",
   subscriptionStatus: "active",
   subscriptionProvider: "mercado_pago",
-  subscriptionAmount: 99.9,
+  subscriptionAmount: 1,
   subscriptionDueDate: "",
   lastPaymentAt: null,
   suppliers: [],

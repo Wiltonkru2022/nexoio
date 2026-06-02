@@ -82,7 +82,7 @@ Lojas novas nascem com:
 ```js
 subscriptionStatus: "pending_payment",
 subscriptionProvider: "mercado_pago",
-subscriptionAmount: 99.9
+subscriptionAmount: 1
 ```
 
 Se a assinatura não estiver ativa, o app mostra a tela de regularização.

@@ -74,7 +74,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
           </p>
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             <InfoCard title="Plano" value={tenant?.plan || "starter"} />
-            <InfoCard title="Mensalidade" value={formatMoney(tenant?.subscriptionAmount || 99.9)} />
+            <InfoCard title="Mensalidade" value={formatMoney(tenant?.subscriptionAmount || 1)} />
             <InfoCard title="Status" value={statusLabel(tenant?.subscriptionStatus)} />
           </div>
           <div className="mt-6 grid gap-2">

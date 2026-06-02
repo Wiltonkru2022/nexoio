@@ -11,7 +11,7 @@ const MERCADO_PAGO_WEBHOOK_SECRET = defineSecret("MERCADO_PAGO_WEBHOOK_SECRET");
 const OPENPIX_PROD = "https://api.openpix.com.br/api/v1";
 const OPENPIX_SANDBOX = "https://api.openpix.com.br/api/v1";
 const MERCADO_PAGO_API = "https://api.mercadopago.com";
-const NEXO_SUBSCRIPTION_AMOUNT = Number(process.env.NEXO_SUBSCRIPTION_AMOUNT || 99.9);
+const NEXO_SUBSCRIPTION_AMOUNT = Number(process.env.NEXO_SUBSCRIPTION_AMOUNT || 1);
 
 function normalizeEmail(email = "") {
   return String(email || "").trim().toLowerCase();
