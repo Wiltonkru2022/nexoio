@@ -1,10 +1,12 @@
 import admin from "firebase-admin";
+import crypto from "node:crypto";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 
 admin.initializeApp();
 const db = admin.firestore();
 const MERCADO_PAGO_ACCESS_TOKEN = defineSecret("MERCADO_PAGO_ACCESS_TOKEN");
+const MERCADO_PAGO_WEBHOOK_SECRET = defineSecret("MERCADO_PAGO_WEBHOOK_SECRET");
 
 const OPENPIX_PROD = "https://api.openpix.com.br/api/v1";
 const OPENPIX_SANDBOX = "https://api.openpix.com.br/api/v1";
@@ -89,6 +91,40 @@ function mercadoPagoPaymentStatus(status) {
 
 function isMercadoPagoPaid(status) {
   return ["approved", "accredited"].includes(status);
+}
+
+function signaturePart(signatureHeader, key) {
+  return String(signatureHeader || "")
+    .split(/[;,]/)
+    .map((part) => part.trim().split("="))
+    .find(([name]) => name === key)?.[1] || "";
+}
+
+function secureCompareHex(received, expected) {
+  const receivedBuffer = Buffer.from(String(received || ""), "hex");
+  const expectedBuffer = Buffer.from(String(expected || ""), "hex");
+  return receivedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+function mercadoPagoWebhookPaymentId(request, event) {
+  return event?.data?.id || event?.id || request.query?.["data.id"] || request.query?.id || "";
+}
+
+function validateMercadoPagoWebhook(request, event) {
+  const secret = MERCADO_PAGO_WEBHOOK_SECRET.value() || "";
+  if (!secret) return true;
+
+  const signatureHeader = request.get("x-signature") || "";
+  const requestId = request.get("x-request-id") || "";
+  const ts = signaturePart(signatureHeader, "ts");
+  const receivedSignature = signaturePart(signatureHeader, "v1");
+  const paymentId = mercadoPagoWebhookPaymentId(request, event);
+
+  if (!paymentId || !requestId || !ts || !receivedSignature) return false;
+
+  const manifest = `id:${paymentId};request-id:${requestId};ts:${ts};`;
+  const expectedSignature = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+  return secureCompareHex(receivedSignature, expectedSignature);
 }
 
 function payerIdentification(document = "") {
@@ -320,9 +356,14 @@ export const openPixWebhook = onRequest({ region: "southamerica-east1" }, async 
   response.status(200).json({ ok: true });
 });
 
-export const nexoSubscriptionWebhook = onRequest({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request, response) => {
+export const nexoSubscriptionWebhook = onRequest({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN, MERCADO_PAGO_WEBHOOK_SECRET] }, async (request, response) => {
   const event = request.body || request.query || {};
-  const paymentId = event?.data?.id || event?.id || request.query?.["data.id"];
+  if (!validateMercadoPagoWebhook(request, event)) {
+    response.status(401).json({ ok: false, error: "invalid_signature" });
+    return;
+  }
+
+  const paymentId = mercadoPagoWebhookPaymentId(request, event);
   if (!paymentId) {
     response.status(200).json({ ok: true, ignored: true });
     return;

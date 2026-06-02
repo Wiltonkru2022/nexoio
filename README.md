@@ -72,6 +72,7 @@ Deploy das Functions:
 
 ```bash
 npx firebase-tools functions:secrets:set MERCADO_PAGO_ACCESS_TOKEN
+npx firebase-tools functions:secrets:set MERCADO_PAGO_WEBHOOK_SECRET
 npx firebase-tools deploy --only functions
 ```
 
@@ -93,4 +94,4 @@ O frontend e as regras Firestore já foram publicados no Firebase Hosting:
 https://nexoio-4b7ae.web.app
 ```
 
-As Functions de assinatura ficam pendentes até ativar o plano Blaze e configurar o segredo `MERCADO_PAGO_ACCESS_TOKEN`.
+As Functions de assinatura exigem o plano Blaze e os segredos `MERCADO_PAGO_ACCESS_TOKEN` e `MERCADO_PAGO_WEBHOOK_SECRET`.

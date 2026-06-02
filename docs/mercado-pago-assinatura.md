@@ -30,15 +30,16 @@ Funções:
 - `checkNexoSubscriptionCharge`
 - `nexoSubscriptionWebhook`
 
-## Secret
+## Secrets
 
-O Access Token do Mercado Pago deve ser configurado como Secret Manager:
+O Access Token e a assinatura secreta do webhook do Mercado Pago devem ser configurados como Secret Manager:
 
 ```bash
 npx firebase-tools functions:secrets:set MERCADO_PAGO_ACCESS_TOKEN
+npx firebase-tools functions:secrets:set MERCADO_PAGO_WEBHOOK_SECRET
 ```
 
-Nunca salve Access Token em arquivo versionado nem no frontend.
+Nunca salve Access Token ou assinatura secreta em arquivo versionado nem no frontend.
 
 ## Webhook
 
@@ -51,6 +52,12 @@ https://southamerica-east1-nexoio-4b7ae.cloudfunctions.net/nexoSubscriptionWebho
 Eventos recomendados:
 
 - `payment`
+
+Segurança:
+
+- Ative a assinatura secreta no painel do Mercado Pago.
+- A Function valida os headers `x-signature` e `x-request-id`.
+- Webhooks com assinatura inválida recebem `401`.
 
 ## Tela Própria
 

@@ -63,6 +63,7 @@ Depois de ativar Blaze:
 
 ```bash
 npx firebase-tools functions:secrets:set MERCADO_PAGO_ACCESS_TOKEN
+npx firebase-tools functions:secrets:set MERCADO_PAGO_WEBHOOK_SECRET
 npx firebase-tools deploy --only functions
 ```
 
