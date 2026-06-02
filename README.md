@@ -1,6 +1,6 @@
 # Nexo.io
 
-Sistema web multi-loja para lojas de eletrônicos, com PDV, produtos, estoque, clientes, vendas, financeiro, assistência técnica, relatórios, impressões e assinatura via Pix Woovi/OpenPix.
+Sistema web multi-loja para lojas de eletrônicos, com PDV, produtos, estoque, clientes, vendas, financeiro, assistência técnica, relatórios, impressões e assinatura via Pix Mercado Pago.
 
 ## Visão Geral
 
@@ -11,8 +11,8 @@ O Nexo.io foi pensado para vender acesso como SaaS:
 - Firebase Authentication para acesso.
 - Firestore com isolamento por loja.
 - Firebase Hosting para publicação.
-- Cloud Functions para integrações sensíveis, como Woovi/OpenPix.
-- Woovi/OpenPix para assinatura mensal do sistema.
+- Cloud Functions para integrações sensíveis, como Mercado Pago e OpenPix.
+- Mercado Pago Pix para assinatura mensal do sistema.
 - OpenPix opcional no PDV para o lojista receber Pix na própria conta.
 
 ## Módulos
@@ -42,7 +42,7 @@ O Nexo.io foi pensado para vender acesso como SaaS:
 - Firestore
 - Firebase Hosting
 - Cloud Functions
-- Woovi/OpenPix
+- Mercado Pago
 
 ## Scripts
 
@@ -71,7 +71,7 @@ npx firebase-tools deploy --only hosting,firestore:rules
 Deploy das Functions:
 
 ```bash
-npx firebase-tools functions:secrets:set WOOVI_API_KEY
+npx firebase-tools functions:secrets:set MERCADO_PAGO_ACCESS_TOKEN
 npx firebase-tools deploy --only functions
 ```
 
@@ -81,7 +81,7 @@ Observação: Cloud Functions exige o plano Blaze no Firebase.
 
 - [Deploy e domínio](docs/deploy.md)
 - [Firebase e segurança](docs/firebase.md)
-- [Assinatura Woovi/OpenPix](docs/woovi-assinatura.md)
+- [Assinatura Mercado Pago Pix](docs/mercado-pago-assinatura.md)
 - [Operação do sistema](docs/operacao.md)
 - [Checklist para venda](docs/checklist-venda.md)
 
@@ -93,4 +93,4 @@ O frontend e as regras Firestore já foram publicados no Firebase Hosting:
 https://nexoio-4b7ae.web.app
 ```
 
-As Functions de assinatura ficam pendentes até ativar o plano Blaze e configurar o segredo `WOOVI_API_KEY`.
+As Functions de assinatura ficam pendentes até ativar o plano Blaze e configurar o segredo `MERCADO_PAGO_ACCESS_TOKEN`.

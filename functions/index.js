@@ -4,12 +4,12 @@ import { defineSecret } from "firebase-functions/params";
 
 admin.initializeApp();
 const db = admin.firestore();
-const WOOVI_API_KEY = defineSecret("WOOVI_API_KEY");
+const MERCADO_PAGO_ACCESS_TOKEN = defineSecret("MERCADO_PAGO_ACCESS_TOKEN");
 
 const OPENPIX_PROD = "https://api.openpix.com.br/api/v1";
-const OPENPIX_SANDBOX = "https://api.woovi-sandbox.com/api/v1";
+const OPENPIX_SANDBOX = "https://api.openpix.com.br/api/v1";
+const MERCADO_PAGO_API = "https://api.mercadopago.com";
 const NEXO_SUBSCRIPTION_AMOUNT = Number(process.env.NEXO_SUBSCRIPTION_AMOUNT || 99.9);
-const NEXO_SUBSCRIPTION_MODE = process.env.NEXO_SUBSCRIPTION_MODE || "production";
 
 async function getUserProfile(uid) {
   const snap = await db.doc(`userProfiles/${uid}`).get();
@@ -53,26 +53,26 @@ async function openPixFetch(tenant, path, options = {}) {
   return payload;
 }
 
-function nexoSubscriptionToken() {
-  const token = WOOVI_API_KEY.value() || "";
+function mercadoPagoToken() {
+  const token = MERCADO_PAGO_ACCESS_TOKEN.value() || "";
   if (!token) {
-    throw new HttpsError("failed-precondition", "Token Woovi da assinatura Nexo.io nÃ£o configurado no backend.");
+    throw new HttpsError("failed-precondition", "Token Mercado Pago da assinatura Nexo.io não configurado no backend.");
   }
   return token;
 }
 
-async function nexoWooviFetch(path, options = {}) {
-  const response = await fetch(`${openPixBaseUrl(NEXO_SUBSCRIPTION_MODE)}${path}`, {
+async function mercadoPagoFetch(path, options = {}) {
+  const response = await fetch(`${MERCADO_PAGO_API}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: nexoSubscriptionToken(),
+      Authorization: `Bearer ${mercadoPagoToken()}`,
       ...(options.headers || {}),
     },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new HttpsError("internal", payload?.error || payload?.message || "Falha na comunicaÃ§Ã£o com Woovi.", payload);
+    throw new HttpsError("internal", payload?.message || payload?.error || "Falha na comunicação com Mercado Pago.", payload);
   }
   return payload;
 }
@@ -83,89 +83,124 @@ function nextDueDate(months = 1) {
   return date.toISOString().slice(0, 10);
 }
 
-export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [WOOVI_API_KEY] }, async (request) => {
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "FaÃ§a login para continuar.");
+function mercadoPagoPaymentStatus(status) {
+  return ["approved", "accredited"].includes(status) ? "approved" : status || "pending";
+}
+
+function isMercadoPagoPaid(status) {
+  return ["approved", "accredited"].includes(status);
+}
+
+function payerIdentification(document = "") {
+  const digits = String(document || "").replace(/\D/g, "");
+  if (!digits) return undefined;
+  return {
+    type: digits.length > 11 ? "CNPJ" : "CPF",
+    number: digits,
+  };
+}
+
+export const createNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
   const { tenantId, tenant, profile } = await getTenantForUser(request.auth.uid);
   if (!["owner", "admin", "manager"].includes(profile.role)) {
     throw new HttpsError("permission-denied", "Somente administrador pode regularizar assinatura.");
   }
 
-  const amount = Math.round(NEXO_SUBSCRIPTION_AMOUNT * 100);
   const correlationID = `nexo-sub-${tenantId}-${Date.now()}`;
   const payload = {
-    value: amount,
-    correlationID,
-    comment: `Assinatura Nexo.io - ${tenant.name || tenantId}`,
-    expiresIn: 3600,
-    customer: {
-      name: tenant.name || profile.name || profile.email || "Cliente Nexo.io",
+    transaction_amount: Number(NEXO_SUBSCRIPTION_AMOUNT.toFixed(2)),
+    description: `Assinatura Nexo.io - ${tenant.name || tenantId}`,
+    payment_method_id: "pix",
+    external_reference: correlationID,
+    metadata: {
+      tenant_id: tenantId,
+      correlation_id: correlationID,
+      product: "nexoio_subscription",
+    },
+    payer: {
       email: profile.email || "",
-      phone: String(tenant.phone || tenant.whatsapp || "").replace(/\D/g, ""),
-      taxID: tenant.document || "",
+      first_name: tenant.name || profile.name || "Cliente Nexo.io",
+      identification: payerIdentification(tenant.document),
     },
   };
 
-  const result = await nexoWooviFetch("/charge?return_existing=true", {
+  const payment = await mercadoPagoFetch("/v1/payments", {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: {
+      "X-Idempotency-Key": correlationID,
+    },
   });
-  const charge = result.charge || result;
+  const transactionData = payment.point_of_interaction?.transaction_data || {};
+  const qrCodeBase64 = transactionData.qr_code_base64 || "";
+  const brCode = transactionData.qr_code || "";
+  const paymentLinkUrl = transactionData.ticket_url || "";
+  const providerPaymentId = String(payment.id || "");
+  const status = mercadoPagoPaymentStatus(payment.status);
 
   await db.doc(`tenants/${tenantId}/subscriptionCharges/${correlationID}`).set({
     tenant_id: tenantId,
     correlationID,
-    provider: "woovi",
+    provider: "mercado_pago",
+    providerPaymentId,
     amount: NEXO_SUBSCRIPTION_AMOUNT,
-    status: charge.status || "ACTIVE",
-    brCode: charge.brCode || charge.brcode || "",
-    qrCodeImage: charge.qrCodeImage || charge.qrCodeImageUrl || "",
-    paymentLinkUrl: charge.paymentLinkUrl || "",
-    raw: charge,
+    status,
+    brCode,
+    qrCodeImage: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : "",
+    paymentLinkUrl,
+    raw: payment,
     createdBy: request.auth.uid,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
   await db.doc(`tenants/${tenantId}`).set({
-    subscriptionProvider: "woovi",
+    subscriptionProvider: "mercado_pago",
     subscriptionStatus: "pending_payment",
     subscriptionAmount: NEXO_SUBSCRIPTION_AMOUNT,
     subscriptionChargeId: correlationID,
+    subscriptionPaymentId: providerPaymentId,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
   return {
     correlationID,
+    providerPaymentId,
     amount: NEXO_SUBSCRIPTION_AMOUNT,
-    status: charge.status || "ACTIVE",
-    brCode: charge.brCode || charge.brcode || "",
-    qrCodeImage: charge.qrCodeImage || charge.qrCodeImageUrl || "",
-    paymentLinkUrl: charge.paymentLinkUrl || "",
+    status,
+    brCode,
+    qrCodeImage: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : "",
+    paymentLinkUrl,
   };
 });
 
-export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [WOOVI_API_KEY] }, async (request) => {
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "FaÃ§a login para continuar.");
+export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login para continuar.");
   const { tenantId } = await getTenantForUser(request.auth.uid);
   const correlationID = request.data?.correlationID;
-  if (!correlationID) throw new HttpsError("invalid-argument", "Informe a cobranÃ§a.");
+  if (!correlationID) throw new HttpsError("invalid-argument", "Informe a cobrança.");
 
-  const result = await nexoWooviFetch(`/charge/${encodeURIComponent(correlationID)}`, { method: "GET" });
-  const charge = result.charge || result;
-  const status = charge.status || (charge.paidAt ? "COMPLETED" : "ACTIVE");
-  const paid = ["COMPLETED", "PAID"].includes(status);
+  const chargeRef = db.doc(`tenants/${tenantId}/subscriptionCharges/${correlationID}`);
+  const chargeSnap = await chargeRef.get();
+  const providerPaymentId = chargeSnap.data()?.providerPaymentId;
+  if (!providerPaymentId) throw new HttpsError("not-found", "Pagamento Mercado Pago não encontrado.");
 
-  await db.doc(`tenants/${tenantId}/subscriptionCharges/${correlationID}`).set({
+  const payment = await mercadoPagoFetch(`/v1/payments/${encodeURIComponent(providerPaymentId)}`, { method: "GET" });
+  const status = mercadoPagoPaymentStatus(payment.status);
+  const paid = isMercadoPagoPaid(status);
+
+  await chargeRef.set({
     status,
-    paidAt: charge.paidAt || charge.completedAt || null,
-    raw: charge,
+    paidAt: payment.date_approved || null,
+    raw: payment,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
   if (paid) {
     await db.doc(`tenants/${tenantId}`).set({
       subscriptionStatus: "active",
-      subscriptionProvider: "woovi",
+      subscriptionProvider: "mercado_pago",
       subscriptionAmount: NEXO_SUBSCRIPTION_AMOUNT,
       subscriptionDueDate: nextDueDate(1),
       lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -177,7 +212,7 @@ export const checkNexoSubscriptionCharge = onCall({ region: "southamerica-east1"
     correlationID,
     status,
     paid,
-    paidAt: charge.paidAt || charge.completedAt || null,
+    paidAt: payment.date_approved || null,
   };
 });
 
@@ -285,38 +320,44 @@ export const openPixWebhook = onRequest({ region: "southamerica-east1" }, async 
   response.status(200).json({ ok: true });
 });
 
-export const nexoSubscriptionWebhook = onRequest({ region: "southamerica-east1", secrets: [WOOVI_API_KEY] }, async (request, response) => {
-  const event = request.body || {};
-  const charge = event.charge || event.pixQrCode || {};
-  const correlationID = charge.correlationID || event.correlationID;
-  if (!correlationID) {
+export const nexoSubscriptionWebhook = onRequest({ region: "southamerica-east1", secrets: [MERCADO_PAGO_ACCESS_TOKEN] }, async (request, response) => {
+  const event = request.body || request.query || {};
+  const paymentId = event?.data?.id || event?.id || request.query?.["data.id"];
+  if (!paymentId) {
     response.status(200).json({ ok: true, ignored: true });
     return;
   }
 
-  const matches = await db.collectionGroup("subscriptionCharges").where("correlationID", "==", correlationID).limit(1).get();
-  if (matches.empty) {
+  const payment = await mercadoPagoFetch(`/v1/payments/${encodeURIComponent(paymentId)}`, { method: "GET" });
+  const correlationID = payment.external_reference || payment.metadata?.correlation_id || "";
+  const matches = await db.collectionGroup("subscriptionCharges").where("providerPaymentId", "==", String(paymentId)).limit(1).get();
+  const fallbackMatches = matches.empty && correlationID
+    ? await db.collectionGroup("subscriptionCharges").where("correlationID", "==", correlationID).limit(1).get()
+    : matches;
+
+  if (fallbackMatches.empty) {
     response.status(200).json({ ok: true, ignored: true });
     return;
   }
 
-  const chargeRef = matches.docs[0].ref;
+  const chargeRef = fallbackMatches.docs[0].ref;
   const tenantRef = chargeRef.parent.parent;
-  const status = charge.status || (event.event === "OPENPIX:CHARGE_COMPLETED" ? "COMPLETED" : "ACTIVE");
-  const paid = ["COMPLETED", "PAID"].includes(status);
+  const status = mercadoPagoPaymentStatus(payment.status);
+  const paid = isMercadoPagoPaid(status);
 
   await chargeRef.set({
     status,
-    paidAt: charge.paidAt || event.date || null,
-    webhookEvent: event.event || "",
+    paidAt: payment.date_approved || null,
+    webhookEvent: event.type || request.query?.type || "",
     rawWebhook: event,
+    raw: payment,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
   if (paid && tenantRef) {
     await tenantRef.set({
       subscriptionStatus: "active",
-      subscriptionProvider: "woovi",
+      subscriptionProvider: "mercado_pago",
       subscriptionAmount: NEXO_SUBSCRIPTION_AMOUNT,
       subscriptionDueDate: nextDueDate(1),
       lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),

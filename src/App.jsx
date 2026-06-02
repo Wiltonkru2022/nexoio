@@ -205,7 +205,7 @@ function App() {
       createdAt: serverTimestamp(),
       plan: "starter",
       subscriptionStatus: "pending_payment",
-      subscriptionProvider: "woovi",
+      subscriptionProvider: "mercado_pago",
       subscriptionAmount: 99.9,
       subscriptionDueDate: "",
       lastPaymentAt: null,

@@ -62,11 +62,11 @@ Cloud Functions exige o plano Blaze.
 Depois de ativar Blaze:
 
 ```bash
-npx firebase-tools functions:secrets:set WOOVI_API_KEY
+npx firebase-tools functions:secrets:set MERCADO_PAGO_ACCESS_TOKEN
 npx firebase-tools deploy --only functions
 ```
 
-Webhook de assinatura para cadastrar na Woovi:
+Webhook de assinatura para cadastrar no Mercado Pago:
 
 ```text
 https://southamerica-east1-nexoio-4b7ae.cloudfunctions.net/nexoSubscriptionWebhook

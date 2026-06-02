@@ -35,7 +35,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
       if (result.paid) {
         setMessage("Pagamento confirmado. O sistema será liberado em instantes.");
       } else {
-        setMessage("Pagamento ainda não confirmado pela Woovi.");
+        setMessage("Pagamento ainda não confirmado pelo Mercado Pago.");
       }
     } catch (err) {
       setError(err.message || "Não foi possível consultar o pagamento.");
@@ -70,7 +70,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
           <p className="text-sm font-black uppercase tracking-[0.2em] text-blue-700">Assinatura Nexo.io</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight">Regularize sua assinatura para liberar o sistema.</h1>
           <p className="mt-4 text-base font-semibold leading-7 text-slate-600">
-            O acesso ao PDV, vendas, produtos, clientes e OS fica disponível após a confirmação do Pix pela Woovi.
+            O acesso ao PDV, vendas, produtos, clientes e OS fica disponível após a confirmação do Pix pelo Mercado Pago.
           </p>
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             <InfoCard title="Plano" value={tenant?.plan || "starter"} />
@@ -78,7 +78,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
             <InfoCard title="Status" value={statusLabel(tenant?.subscriptionStatus)} />
           </div>
           <div className="mt-6 grid gap-2">
-            {["Pagamento via Pix Woovi", "Liberação automática por webhook", "Dados da loja preservados"].map((item) => (
+            {["Pagamento via Pix Mercado Pago", "Liberação automática por webhook", "Dados da loja preservados"].map((item) => (
               <p key={item} className="flex items-center gap-2 text-sm font-bold text-slate-700">
                 <CheckCircle2 size={16} className="text-emerald-600" /> {item}
               </p>
@@ -93,7 +93,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
             </span>
             <div>
               <h2 className="text-xl font-black">Pagamento Pix</h2>
-              <p className="text-sm font-semibold text-slate-500">Woovi/OpenPix</p>
+              <p className="text-sm font-semibold text-slate-500">Mercado Pago Pix</p>
             </div>
           </div>
 

@@ -6,7 +6,7 @@
 - Firestore
 - Firebase Hosting
 - Cloud Functions
-- Secret Manager para token Woovi
+- Secret Manager para token Mercado Pago
 
 ## Multi-Loja
 
@@ -81,7 +81,7 @@ Lojas novas nascem com:
 
 ```js
 subscriptionStatus: "pending_payment",
-subscriptionProvider: "woovi",
+subscriptionProvider: "mercado_pago",
 subscriptionAmount: 99.9
 ```
 

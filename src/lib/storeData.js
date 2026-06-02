@@ -63,7 +63,7 @@ export const initialStoreForm = {
   logoUrl: "",
   plan: "starter",
   subscriptionStatus: "active",
-  subscriptionProvider: "woovi",
+  subscriptionProvider: "mercado_pago",
   subscriptionAmount: 99.9,
   subscriptionDueDate: "",
   lastPaymentAt: null,
