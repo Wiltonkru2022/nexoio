@@ -118,16 +118,24 @@ export function LoginPage({
           description="Use seu acesso para abrir o caixa, consultar clientes, registrar vendas, controlar OS e acompanhar o movimento da loja."
         >
           <AuthCard title="Entrar no sistema" subtitle="Informe o e-mail e a senha cadastrados." icon={LogIn}>
-            <form className="mt-7 space-y-4" onSubmit={onSubmit}>
-              <Input label="E-mail" type="email" required value={email} onChange={setEmail} placeholder="loja@email.com" />
-              <Input label="Senha" type="password" required value={senha} onChange={setSenha} placeholder="Digite sua senha" />
-              {erro && <Notice tone="danger">{erro}</Notice>}
-              {sucesso && <Notice tone="success">{sucesso}</Notice>}
-              <button type="submit" className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700">
-                Entrar
-              </button>
+            <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+              <div className="space-y-4">
+                <Input label="E-mail" type="email" required value={email} onChange={setEmail} placeholder="loja@email.com" />
+                <Input label="Senha" type="password" required value={senha} onChange={setSenha} placeholder="Digite sua senha" />
+              </div>
+              {(erro || sucesso) && (
+                <div className="pt-1">
+                  {erro && <Notice tone="danger">{erro}</Notice>}
+                  {sucesso && <Notice tone="success">{sucesso}</Notice>}
+                </div>
+              )}
+              <div className="space-y-3 pt-1">
+                <button type="submit" className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700">
+                  Entrar
+                </button>
+              </div>
             </form>
-            <button type="button" onClick={openSignup} className="mt-5 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50">
+            <button type="button" onClick={openSignup} className="mt-4 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50">
               Criar uma nova conta
             </button>
           </AuthCard>
@@ -141,7 +149,7 @@ export function LoginPage({
           description="Após o cadastro, você configura sua loja, aceita os termos e regulariza o plano para acessar o sistema."
         >
           <AuthCard title="Criar conta da loja" subtitle="Preencha os dados principais para iniciar." icon={Store} wide>
-            <form className="mt-7 space-y-4" onSubmit={onSubmit}>
+            <form className="mt-8 space-y-5" onSubmit={onSubmit}>
               <div className="grid gap-3 md:grid-cols-2">
                 <Input label="E-mail" type="email" required value={email} onChange={setEmail} placeholder="loja@email.com" />
                 <Input label="Senha" type="password" required value={senha} onChange={setSenha} placeholder="Digite sua senha" />
@@ -171,8 +179,12 @@ export function LoginPage({
                   {errors.acceptedTerms && <span className="mt-1 block text-xs font-black text-red-600">{errors.acceptedTerms}</span>}
                 </span>
               </label>
-              {erro && <Notice tone="danger">{erro}</Notice>}
-              {sucesso && <Notice tone="success">{sucesso}</Notice>}
+              {(erro || sucesso) && (
+                <div className="pt-1">
+                  {erro && <Notice tone="danger">{erro}</Notice>}
+                  {sucesso && <Notice tone="success">{sucesso}</Notice>}
+                </div>
+              )}
               <button type="submit" className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700">
                 Cadastrar loja
               </button>
@@ -266,8 +278,8 @@ function PublicFrame({ children, activeView, setPublicView, openLogin, openSignu
 
 function SplitAuthLayout({ eyebrow, title, description, children }) {
   return (
-    <section className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(500px,0.85fr)] lg:items-start">
-      <aside className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+    <section className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(500px,0.85fr)] lg:items-start">
+      <aside className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-black uppercase tracking-[0.22em] text-blue-700">{eyebrow}</p>
         <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight text-slate-950">{title}</h1>
         <p className="mt-4 text-base leading-7 text-slate-600">{description}</p>
@@ -292,7 +304,7 @@ function SplitAuthLayout({ eyebrow, title, description, children }) {
 
 function AuthCard({ title, subtitle, icon: Icon, children, wide = false }) {
   return (
-    <section className={`w-full rounded-2xl border border-slate-200 bg-white p-7 shadow-2xl shadow-slate-200 ${wide ? "max-w-3xl" : "max-w-xl"}`}>
+    <section className={`w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200 ${wide ? "max-w-3xl" : "max-w-xl"}`}>
       <div className="flex items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-700">
           <Icon size={22} />

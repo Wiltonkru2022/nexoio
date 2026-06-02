@@ -195,7 +195,7 @@ export function AssistenciaPage({
           <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <Input label="Buscar servico tecnico" value={serviceSearch} onChange={setServiceSearch} placeholder="Tela, bateria, limpeza..." />
+                <Input label="Buscar serviço técnico" value={serviceSearch} onChange={setServiceSearch} placeholder="Tela, bateria, limpeza..." />
                 <div className="mt-2 grid gap-2">
                   {filteredServices.map((service) => (
                     <button key={service.id} type="button" onClick={() => addOsService(service)} className="rounded-lg border border-sky-100 bg-white px-3 py-2 text-left text-sm font-bold hover:border-sky-300">
@@ -267,7 +267,7 @@ export function AssistenciaPage({
 
       {serviceView === "form" ? (
         <Panel
-          title={serviceForm.id ? "Editar servico tecnico" : "Novo servico tecnico"}
+          title={serviceForm.id ? "Editar serviço técnico" : "Novo serviço técnico"}
           actions={<button type="button" onClick={() => setServiceView("list")} className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-black text-neutral-700"><ArrowLeft size={16} /> Voltar</button>}
         >
           <form className="grid gap-3" onSubmit={submitService}>
@@ -277,12 +277,12 @@ export function AssistenciaPage({
             <Input label="Custo" value={serviceForm.cost} onChange={(value) => setServiceForm({ ...serviceForm, cost: value })} mask={maskCurrency} />
             <Input label="Setor" value={serviceForm.sector} onChange={(value) => setServiceForm({ ...serviceForm, sector: value })} />
             <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 py-3 text-sm font-black text-white disabled:opacity-60">
-              <Save size={16} /> Salvar servico
+              <Save size={16} /> Salvar serviço
             </button>
           </form>
         </Panel>
       ) : (
-        <Panel title="Servicos tecnicos" actions={<button type="button" onClick={startNewService} className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-black text-white"><Plus size={16} /> Novo servico</button>}>
+        <Panel title="Serviços técnicos" actions={<button type="button" onClick={startNewService} className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-black text-white"><Plus size={16} /> Novo serviço</button>}>
           <div className="grid gap-3">
             {services.map((service) => (
               <button key={service.id} type="button" onClick={() => setSelectedService(service)} className="rounded-lg border border-neutral-200 bg-white p-3 text-left transition hover:border-sky-300 hover:bg-sky-50">
@@ -295,7 +295,7 @@ export function AssistenciaPage({
                 </div>
               </button>
             ))}
-            {!services.length && <p className="rounded-lg border border-dashed border-neutral-300 p-4 text-center text-sm font-bold text-neutral-500">Nenhum servico cadastrado.</p>}
+            {!services.length && <p className="rounded-lg border border-dashed border-neutral-300 p-4 text-center text-sm font-bold text-neutral-500">Nenhum serviço cadastrado.</p>}
           </div>
         </Panel>
       )}
@@ -353,7 +353,7 @@ export function AssistenciaPage({
         )}
       </Modal>
 
-      <Modal title="Detalhes do servico" open={Boolean(selectedService)} onClose={() => setSelectedService(null)}>
+      <Modal title="Detalhes do serviço" open={Boolean(selectedService)} onClose={() => setSelectedService(null)}>
         {selectedService && (
           <div className="grid gap-4">
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">

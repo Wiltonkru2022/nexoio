@@ -90,6 +90,26 @@ function canonicalRedirectFor(user, loading) {
   return "";
 }
 
+function mensagemErro(error, fallback = "Não foi possível concluir a operação.") {
+  const code = error?.code || "";
+  const message = String(error?.message || "");
+  const map = {
+    "auth/email-already-in-use": "Este e-mail já está sendo usado.",
+    "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/wrong-password": "E-mail ou senha incorretos.",
+    "auth/user-not-found": "E-mail ou senha incorretos.",
+    "auth/invalid-email": "Informe um e-mail válido.",
+    "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco e tente novamente.",
+    "permission-denied": "Você não tem permissão para acessar estes dados.",
+  };
+
+  if (map[code]) return map[code];
+  if (/missing or insufficient permissions/i.test(message)) return "Você não tem permissão para acessar estes dados.";
+  if (/network/i.test(message)) return "Falha de conexão. Verifique sua internet e tente novamente.";
+  return fallback;
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -198,37 +218,6 @@ function App() {
       return;
     }
 
-    const normalizedEmail = normalizeEmail(currentUser.email);
-    const inviteRef = doc(db, "tenantInvites", emailKey(normalizedEmail));
-    const inviteSnap = await getDoc(inviteRef);
-
-    if (inviteSnap.exists()) {
-      const invite = inviteSnap.data();
-      const nextProfile = {
-        email: normalizedEmail,
-        name: invite.name || currentUser.displayName || normalizedEmail,
-        role: invite.role,
-        status: "active",
-        tenant_id: invite.tenant_id,
-        createdAt: serverTimestamp(),
-      };
-
-      await setDoc(profileRef, nextProfile);
-      await setDoc(doc(db, "tenants", invite.tenant_id, "members", currentUser.uid), {
-        uid: currentUser.uid,
-        email: normalizedEmail,
-        name: invite.name || currentUser.displayName || normalizedEmail,
-        role: invite.role,
-        status: "active",
-        joinedAt: serverTimestamp(),
-      });
-      await setDoc(inviteRef, { status: "accepted", acceptedBy: currentUser.uid, acceptedAt: serverTimestamp() }, { merge: true });
-      setProfile({ id: currentUser.uid, ...nextProfile });
-      setTenantId(invite.tenant_id);
-      setBootingTenant(false);
-      return;
-    }
-
     const result = await bootstrapTenant(signupStoreRef.current || initialStoreForm, acceptedTerms);
     setProfile(result.profile);
     setTenantId(result.tenantId);
@@ -241,7 +230,7 @@ function App() {
       setLoading(false);
       if (currentUser) {
         initializeTenant(currentUser).catch((error) => {
-          setErro(`Erro ao carregar loja: ${error.message}`);
+          setErro(mensagemErro(error, "Não foi possível carregar a loja."));
           setBootingTenant(false);
         });
       }
@@ -335,12 +324,12 @@ function App() {
       ...product,
       tenant_id: tenantId,
       createdAt: serverTimestamp(),
-    }))).catch((error) => addToast(`Erro ao criar produtos iniciais: ${error.message}`, "error"));
+    }))).catch((error) => addToast(mensagemErro(error, "Não foi possível criar os produtos iniciais."), "error"));
     Promise.all(seedServices.map((service) => addDoc(collection(db, "tenants", tenantId, "services"), {
       ...service,
       tenant_id: tenantId,
       createdAt: serverTimestamp(),
-    }))).catch((error) => addToast(`Erro ao criar serviços iniciais: ${error.message}`, "error"));
+    }))).catch((error) => addToast(mensagemErro(error, "Não foi possível criar os serviços iniciais."), "error"));
   }, [dataReady.products, dataReady.services, products.length, services.length, tenantId]);
 
   useEffect(() => {
@@ -355,7 +344,7 @@ function App() {
     Promise.all(productsToUpdate.map((product) => updateDoc(doc(db, "tenants", tenantId, "products", product.id), {
       imageUrl: productImageUrls[product.sku],
       updatedAt: serverTimestamp(),
-    }))).catch((error) => addToast(`Erro ao adicionar imagens dos produtos: ${error.message}`, "error"));
+    }))).catch((error) => addToast(mensagemErro(error, "Não foi possível adicionar imagens aos produtos."), "error"));
   }, [products, tenantId]);
 
   useEffect(() => {
@@ -624,10 +613,7 @@ function App() {
         setSucesso("Conta criada com sucesso.");
       }
     } catch (error) {
-      if (error.code === "auth/email-already-in-use") setErro("Este e-mail ja esta sendo usado.");
-      else if (error.code === "auth/weak-password") setErro("A senha precisa ter pelo menos 6 caracteres.");
-      else if (error.code === "auth/invalid-credential") setErro("E-mail ou senha incorretos.");
-      else setErro(`Erro: ${error.message}`);
+      setErro(mensagemErro(error, "Não foi possível entrar ou criar a conta."));
     }
   }
 
@@ -649,7 +635,7 @@ function App() {
 
   function validateServiceForm() {
     const nextErrors = {};
-    if (!serviceForm.name.trim()) nextErrors.serviceName = "Informe o servico.";
+    if (!serviceForm.name.trim()) nextErrors.serviceName = "Informe o serviço.";
     setErrors((current) => ({ ...current, ...nextErrors }));
     return Object.keys(nextErrors).length === 0;
   }
@@ -1038,20 +1024,20 @@ function App() {
     }
     setServiceForm(initialServiceForm);
     setSaving(false);
-    addToast(serviceForm.id ? "Servico atualizado." : "Servico cadastrado.");
+    addToast(serviceForm.id ? "Serviço atualizado." : "Serviço cadastrado.");
     return true;
   }
 
   async function deleteProduct(productId) {
     if (!assertPermission("writeProducts")) return;
     await deleteDoc(doc(db, "tenants", tenantId, "products", productId));
-    addToast("Produto excluido.");
+    addToast("Produto excluído.");
   }
 
   async function deleteService(serviceId) {
     if (!assertPermission("writeServices")) return;
     await deleteDoc(doc(db, "tenants", tenantId, "services", serviceId));
-    addToast("Servico excluido.");
+    addToast("Serviço excluído.");
   }
 
   async function handleCustomerSubmit(event) {
@@ -1083,7 +1069,7 @@ function App() {
   async function deleteCustomer(customerId) {
     if (!assertPermission("writeCustomers")) return;
     await deleteDoc(doc(db, "tenants", tenantId, "customers", customerId));
-    addToast("Cliente excluido.");
+    addToast("Cliente excluído.");
   }
 
   async function handleOsSubmit(event) {
@@ -1236,7 +1222,7 @@ function App() {
   async function deleteOrder(orderId) {
     if (!assertPermission("financeiro")) return;
     if (!tenant?.allowOrderDelete) {
-      addToast("Exclusao de venda bloqueada nas configuracoes.", "error");
+      addToast("Exclusão de venda bloqueada nas configurações.", "error");
       return;
     }
     await deleteDoc(doc(db, "tenants", tenantId, "orders", orderId));
@@ -1290,7 +1276,7 @@ function App() {
       addToast("Senha alterada com sucesso.");
       return true;
     } catch (error) {
-      addToast(error.code === "auth/invalid-credential" ? "Senha atual incorreta." : `Erro ao alterar senha: ${error.message}`, "error");
+      addToast(error.code === "auth/invalid-credential" ? "Senha atual incorreta." : mensagemErro(error, "Não foi possível alterar a senha."), "error");
       return false;
     }
   }
@@ -1323,7 +1309,7 @@ function App() {
                 onClick={() => {
                   setErro("");
                   initializeTenant(user).catch((error) => {
-                    setErro(`Erro ao carregar loja: ${error.message}`);
+                    setErro(mensagemErro(error, "Não foi possível carregar a loja."));
                     setBootingTenant(false);
                   });
                 }}

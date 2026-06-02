@@ -33,6 +33,14 @@ import { maskCpfCnpj, maskCurrency, maskPhone } from "../lib/validation";
 
 const categories = ["Todos", "Capinha", "Película", "Carregador", "Cabo", "Fone", "Acessório", "Outros"];
 
+function integrationErrorMessage(error, fallback) {
+  const message = String(error?.message || "");
+  if (/permission|permiss/i.test(message)) return "Você não tem permissão para executar esta ação.";
+  if (/network|fetch/i.test(message)) return "Falha de conexão. Verifique sua internet e tente novamente.";
+  if (/OpenPix|token|configur/i.test(message)) return "A integração Pix precisa ser revisada nas configurações.";
+  return fallback;
+}
+
 const paymentOptions = [
   { id: "Dinheiro", label: "Dinheiro", Icon: Banknote },
   { id: "Pix", label: "PIX", Icon: QrCode },
@@ -229,7 +237,7 @@ export function PdvPage({
           paymentLinkUrl: charge.paymentLinkUrl || "",
         };
       } catch (error) {
-        setPixError(error.message || "Não foi possível gerar o Pix OpenPix.");
+        setPixError(integrationErrorMessage(error, "Não foi possível gerar o Pix OpenPix."));
         return;
       } finally {
         setPixLoading(false);
@@ -263,7 +271,7 @@ export function PdvPage({
         transactionID: result.transactionID || item.transactionID || "",
       } : item));
     } catch (error) {
-      setPixError(error.message || "Não foi possível consultar a OpenPix.");
+      setPixError(integrationErrorMessage(error, "Não foi possível consultar a OpenPix."));
     } finally {
       setPixLoading(false);
     }

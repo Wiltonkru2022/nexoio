@@ -17,6 +17,10 @@ function normalizeEmail(email = "") {
   return String(email || "").trim().toLowerCase();
 }
 
+function emailKey(email = "") {
+  return normalizeEmail(email).replace(/[.#$[\]/]/g, "_");
+}
+
 function cleanStorePayload(store = {}) {
   return {
     name: String(store.name || "").trim() || "Minha loja de eletrônicos",
@@ -172,6 +176,43 @@ export const bootstrapTenant = onCall({ region: "southamerica-east1" }, async (r
 
   const store = cleanStorePayload(request.data?.store || {});
   const acceptedTerms = Boolean(request.data?.acceptedTerms);
+  const inviteRef = db.doc(`tenantInvites/${emailKey(email)}`);
+  const inviteSnap = await inviteRef.get();
+
+  if (inviteSnap.exists) {
+    const invite = inviteSnap.data();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const memberProfile = {
+      email,
+      name: invite.name || request.auth.token.name || email,
+      role: invite.role || "cashier",
+      status: "active",
+      tenant_id: invite.tenant_id,
+      createdAt: now,
+    };
+    const tenantRef = db.doc(`tenants/${invite.tenant_id}`);
+    const batch = db.batch();
+    batch.set(profileRef, memberProfile);
+    batch.set(tenantRef.collection("members").doc(uid), {
+      uid,
+      email,
+      name: invite.name || request.auth.token.name || email,
+      role: invite.role || "cashier",
+      status: "active",
+      joinedAt: now,
+    });
+    batch.set(inviteRef, { status: "accepted", acceptedBy: uid, acceptedAt: now }, { merge: true });
+    batch.set(tenantRef.collection("invites").doc(emailKey(email)), { status: "accepted", acceptedBy: uid, acceptedAt: now }, { merge: true });
+    await batch.commit();
+
+    return {
+      tenantId: invite.tenant_id,
+      profile: { id: uid, ...memberProfile },
+      existing: false,
+      invited: true,
+    };
+  }
+
   const tenantRef = db.collection("tenants").doc();
   const now = admin.firestore.FieldValue.serverTimestamp();
   const ownerProfile = {

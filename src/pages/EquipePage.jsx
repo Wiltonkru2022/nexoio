@@ -31,7 +31,7 @@ export function EquipePage({
   if (view === "form") {
     return (
       <Panel
-        title="Novo usuario"
+        title="Novo usuário"
         actions={
           <button type="button" onClick={() => setView("list")} className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-black text-neutral-700">
             <ArrowLeft size={16} /> Voltar
@@ -67,7 +67,7 @@ export function EquipePage({
           title={`Equipe de ${tenant?.name || "loja"}`}
           actions={
             <button type="button" onClick={() => setView("form")} className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-black text-white">
-              <Plus size={16} /> Novo usuario
+              <Plus size={16} /> Novo usuário
             </button>
           }
         >

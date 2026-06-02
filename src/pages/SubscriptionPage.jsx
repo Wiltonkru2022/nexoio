@@ -4,6 +4,14 @@ import { BrandLogo, Notice } from "../components/ui";
 import { formatMoney } from "../lib/storeData";
 import { checkNexoSubscriptionCharge, createNexoSubscriptionCharge } from "../lib/subscription";
 
+function paymentErrorMessage(error, fallback) {
+  const message = String(error?.message || "");
+  if (/permission|permiss/i.test(message)) return "Você não tem permissão para executar esta ação.";
+  if (/network|fetch/i.test(message)) return "Falha de conexão. Verifique sua internet e tente novamente.";
+  if (/token|backend/i.test(message)) return "A integração de pagamento ainda não está configurada corretamente.";
+  return fallback;
+}
+
 export function SubscriptionPage({ tenant, user, onLogout }) {
   const [charge, setCharge] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +27,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
       setCharge(result);
       setMessage("Cobrança Pix gerada. Após o pagamento, clique em verificar.");
     } catch (err) {
-      setError(err.message || "Não foi possível gerar a cobrança.");
+      setError(paymentErrorMessage(err, "Não foi possível gerar a cobrança."));
     } finally {
       setLoading(false);
     }
@@ -38,7 +46,7 @@ export function SubscriptionPage({ tenant, user, onLogout }) {
         setMessage("Pagamento ainda não confirmado pelo Mercado Pago.");
       }
     } catch (err) {
-      setError(err.message || "Não foi possível consultar o pagamento.");
+      setError(paymentErrorMessage(err, "Não foi possível consultar o pagamento."));
     } finally {
       setLoading(false);
     }
