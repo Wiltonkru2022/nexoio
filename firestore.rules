@@ -1,0 +1,162 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data;
+    }
+
+    function isMember(tenantId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid))
+        && profile().tenant_id == tenantId
+        && (!("status" in profile()) || profile().status == "active");
+    }
+
+    function role() {
+      return profile().role;
+    }
+
+    function isOwner(tenantId) {
+      return isMember(tenantId) && role() == "owner";
+    }
+
+    function isManager(tenantId) {
+      return isMember(tenantId) && (role() == "owner" || role() == "manager");
+    }
+
+    function isCashier(tenantId) {
+      return isMember(tenantId) && (role() == "owner" || role() == "manager" || role() == "cashier");
+    }
+
+    function tenantMatches(tenantId) {
+      return !("tenant_id" in request.resource.data) || request.resource.data.tenant_id == tenantId;
+    }
+
+    match /userProfiles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn()
+        && (
+          (request.auth.uid == uid && request.resource.data.tenant_id == resource.data.tenant_id)
+          || isOwner(resource.data.tenant_id)
+        );
+      allow delete: if false;
+    }
+
+    match /tenantInvites/{inviteId} {
+      allow read: if signedIn()
+        && (resource.data.email == request.auth.token.email || isOwner(resource.data.tenant_id));
+      allow create: if signedIn() && isOwner(request.resource.data.tenant_id);
+      allow update: if signedIn()
+        && (
+          isOwner(request.resource.data.tenant_id)
+          || resource.data.email == request.auth.token.email
+        );
+      allow delete: if false;
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isMember(tenantId);
+      allow create: if signedIn();
+      allow update: if isOwner(tenantId);
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isMember(tenantId);
+        allow create: if signedIn()
+          && (
+            (request.auth.uid == memberId && profile().tenant_id == tenantId)
+            || isOwner(tenantId)
+          );
+        allow update: if isOwner(tenantId);
+        allow delete: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if isOwner(tenantId);
+        allow create, update: if isOwner(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /products/{productId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isManager(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /services/{serviceId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isManager(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /customers/{customerId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isCashier(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /orders/{orderId} {
+        allow read: if isMember(tenantId);
+        allow create: if isCashier(tenantId) && tenantMatches(tenantId);
+        allow update: if isManager(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /workOrders/{workOrderId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isManager(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /cashSessions/{cashSessionId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isCashier(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+
+      match /cashMovements/{cashMovementId} {
+        allow read: if isMember(tenantId);
+        allow create: if isCashier(tenantId) && tenantMatches(tenantId);
+        allow update, delete: if false;
+      }
+
+      match /stockMovements/{stockMovementId} {
+        allow read: if isMember(tenantId);
+        allow create: if isCashier(tenantId) && tenantMatches(tenantId);
+        allow update, delete: if false;
+      }
+
+      match /openPixCharges/{chargeId} {
+        allow read: if isMember(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /subscriptionCharges/{chargeId} {
+        allow read: if isMember(tenantId);
+        allow create, update, delete: if false;
+      }
+
+      match /auditLogs/{auditLogId} {
+        allow read: if isManager(tenantId);
+        allow create: if isMember(tenantId) && tenantMatches(tenantId);
+        allow update, delete: if false;
+      }
+
+      match /coupons/{couponId} {
+        allow read: if isMember(tenantId);
+        allow create, update: if isManager(tenantId) && tenantMatches(tenantId);
+        allow delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
